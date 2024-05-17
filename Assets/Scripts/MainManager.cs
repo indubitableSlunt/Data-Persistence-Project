@@ -1,16 +1,23 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class MainManager : MonoBehaviour
 {
+    public static MainManager Instance;
+    public string PlayerName;
+    public string HighScoreName;
+    public int HighScore;
+
     public Brick BrickPrefab;
     public int LineCount = 6;
     public Rigidbody Ball;
 
     public Text ScoreText;
+    public Text txtHighScore;
     public GameObject GameOverText;
     
     private bool m_Started = false;
@@ -18,7 +25,63 @@ public class MainManager : MonoBehaviour
     
     private bool m_GameOver = false;
 
-    
+    private void Awake()
+    {
+        if (Instance != null)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+
+        if(LoadHighScoreName())
+        {
+
+            txtHighScore.text = $"High Score : {HighScoreName} + : {HighScore}";
+        }
+    }
+
+    [System.Serializable]
+    class SaveData
+    {
+        public string PlayerName;
+        public int HighScore;
+    }
+
+    public void SavePlayerData()
+    {
+        if(m_Points > HighScore)
+        {
+            SaveData data = new SaveData();
+            data.PlayerName = PlayerName;
+            data.HighScore = HighScore;
+
+            string json = JsonUtility.ToJson(data);
+
+            File.WriteAllText(Application.persistentDataPath + "/savefile.json", json);
+        }
+    }
+
+    public bool LoadHighScoreName()
+    {
+        string path = Application.persistentDataPath + "/savefile.json";
+        if (File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveData data = JsonUtility.FromJson<SaveData>(json);
+
+            HighScoreName = data.PlayerName;
+            HighScore = data.HighScore;
+
+            return true;
+        }
+
+        return false;
+    }
+
+
     // Start is called before the first frame update
     void Start()
     {
