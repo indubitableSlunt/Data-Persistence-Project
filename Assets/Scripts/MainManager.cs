@@ -1,16 +1,17 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class MainManager : MonoBehaviour
 {
-    public static MainManager Instance;
-    public string PlayerName;
-    public string HighScoreName;
-    public int HighScore;
+    private List<SaveDatum> HighScores = new List<SaveDatum>();
+    //public string HighScoreName;
+    //public int HighScore;
 
     public Brick BrickPrefab;
     public int LineCount = 6;
@@ -21,59 +22,74 @@ public class MainManager : MonoBehaviour
     public GameObject GameOverText;
     
     private bool m_Started = false;
+    public string PlayerName;
     private int m_Points;
     
     private bool m_GameOver = false;
 
-    private void Awake()
-    {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-
-        if(LoadHighScoreName())
-        {
-
-            txtHighScore.text = $"High Score : {HighScoreName} + : {HighScore}";
-        }
-    }
+    private const string saveDataFileName = "savefile1.json";
+    private const int highScoreCount = 10;
 
     [System.Serializable]
-    class SaveData
+    class SaveDatum
     {
         public string PlayerName;
         public int HighScore;
     }
 
+    [System.Serializable]
+    class SaveData
+    {
+        public SaveDatum[] data;
+    }
+
     public void SavePlayerData()
     {
-        if(m_Points > HighScore)
+        SaveDatum lowestHighScore;
+        if (HighScores.Count > 0)
         {
-            SaveData data = new SaveData();
-            data.PlayerName = PlayerName;
-            data.HighScore = HighScore;
+            HighScores = HighScores.OrderByDescending((hs) => hs.HighScore).ToList();
+            lowestHighScore = HighScores.Last();
+        }
+        else
+        {
+            lowestHighScore = new SaveDatum { HighScore = 0 };
+        }
 
-            string json = JsonUtility.ToJson(data);
+        if (m_Points > lowestHighScore.HighScore || HighScores.Count < highScoreCount)
+        {
+            SaveDatum datum = new SaveDatum { PlayerName = PlayerName, HighScore = m_Points};
 
-            File.WriteAllText(Application.persistentDataPath + "/savefile.json", json);
+
+            if (HighScores.Count >= highScoreCount)
+            {
+                HighScores.RemoveAt(HighScores.Count - 1);
+            }
+
+            HighScores.Add(datum);
+
+            SaveData saveData = new SaveData { data = HighScores.ToArray() };
+            //data.PlayerName = PlayerName;
+            //data.HighScore = m_Points;
+
+            string json = JsonUtility.ToJson(saveData);
+
+            File.WriteAllText(Application.persistentDataPath + $"/{saveDataFileName}", json);
         }
     }
 
-    public bool LoadHighScoreName()
+    public bool LoadHighScores()
     {
-        string path = Application.persistentDataPath + "/savefile.json";
+        string path = Application.persistentDataPath + $"/{saveDataFileName}";
         if (File.Exists(path))
         {
             string json = File.ReadAllText(path);
-            SaveData data = JsonUtility.FromJson<SaveData>(json);
+            SaveData saveData = JsonUtility.FromJson<SaveData>(json);
+            HighScores = saveData.data.ToList();
+            HighScores = HighScores.OrderByDescending((hs) => hs.HighScore).ThenBy((hs) => hs.PlayerName).ToList();
 
-            HighScoreName = data.PlayerName;
-            HighScore = data.HighScore;
+            //HighScoreName = data.PlayerName;
+            //HighScore = data.HighScore;
 
             return true;
         }
@@ -85,6 +101,18 @@ public class MainManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        PlayerName = MenuManager.Instance.playerName;
+        if (LoadHighScores())
+        {
+            txtHighScore.text = "High Scores" + Environment.NewLine;
+
+            foreach(SaveDatum highScore in HighScores)
+            {
+                txtHighScore.text += $"   {highScore.PlayerName} : {highScore.HighScore}" + Environment.NewLine; ;
+            }
+        }
+
+
         const float step = 0.6f;
         int perLine = Mathf.FloorToInt(4.0f / step);
         
@@ -108,7 +136,7 @@ public class MainManager : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 m_Started = true;
-                float randomDirection = Random.Range(-1.0f, 1.0f);
+                float randomDirection = UnityEngine.Random.Range(-1.0f, 1.0f);
                 Vector3 forceDir = new Vector3(randomDirection, 1, 0);
                 forceDir.Normalize();
 
@@ -120,6 +148,7 @@ public class MainManager : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Space))
             {
+                SavePlayerData();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class MainMenuUIHandler : MonoBehaviour
 {
@@ -22,14 +23,14 @@ public class MainMenuUIHandler : MonoBehaviour
 
     public void btnStartClicked()
     {
-        string playerName = txtName.text;
-        if (string.IsNullOrWhiteSpace(playerName))
+        if (string.IsNullOrWhiteSpace(txtName.text))
         {
             txtWarning.text = "Enter a name to start";
         }
         else
         {
-            MainManager.Instance.PlayerName = playerName;
+            MenuManager.Instance.playerName = txtName.text;
+            SceneManager.LoadScene("main");
         }
     }
 
